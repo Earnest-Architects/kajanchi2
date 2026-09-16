@@ -13,7 +13,6 @@
     if (input.value === PASSWORD) {
       errorEl.hidden = true;
       gate.classList.add("is-leaving");
-      app.hidden = false;
       requestAnimationFrame(function () {
         app.classList.add("is-visible");
       });
