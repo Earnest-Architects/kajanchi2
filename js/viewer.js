@@ -8,15 +8,12 @@
  * perlu diedit sama sekali.
  * ============================================================
  */
-import { views, findView, findContent, projectName, metaDescription } from "./content.js";
-import { createNavHotspotEl, createContentHotspotEl } from "./hotspots.js";
+import { views, findView, findContent, projectName, metaDescription, notesEnabled } from "./content.js";
+import { createNavHotspotEl, createContentHotspotEl, createNoteHotspotEl } from "./hotspots.js";
 import { openContentModal } from "./content-modal.js";
+import { openNoteModal } from "./note-view.js";
+import { fetchNotes } from "./notes-api.js";
 import { setCurrentView, getCurrentViewId, tourEvents } from "./state.js";
-import { initLanguageSwitcher } from "./google-translate.js";
-
-/* Pasang ikon bola dunia (pojok kiri bawah) untuk ganti bahasa —
-   lihat js/google-translate.js untuk cara kerjanya & batasannya. */
-initLanguageSwitcher();
 
 /* ---------- Judul halaman (tab browser), judul besar HUD, meta
    description, & tag Open Graph/Twitter (preview link sosmed) ----------
@@ -27,7 +24,7 @@ initLanguageSwitcher();
    preview link yang 100% akurat, tag og:title/og:description statis
    di index.html tetap perlu disamakan manual. Bagian ini tetap berguna
    untuk judul tab browser & crawler yang menjalankan JS seperti Google.) */
-const fullTitle = `${projectName} Virtual Tour | Earnest Architects`;
+const fullTitle = `${projectName} Virtual Tour | rinaldisign`;
 document.title = fullTitle;
 
 const projectTitleEl = document.getElementById("project-title");
@@ -92,6 +89,40 @@ export const viewer = pannellum.viewer("panorama", {
     ])
   ),
 });
+
+/* ---------- Catatan Hotspot (dibuat pengunjung lewat note-finder.html) ----------
+   Berbeda dari pitchPoints di content.js (statis, ditulis manual di
+   kode), catatan disimpan dinamis lewat Worker Cloudflare. Diambil
+   sekali saat halaman dibuka, lalu ditempel ke scene yang sesuai
+   pakai viewer.addHotSpot() — pannellum otomatis menyimpannya untuk
+   scene yang belum aktif dan menampilkannya begitu scene itu dibuka.
+
+   Fitur ini SEPENUHNYA dikendalikan oleh `notesEnabled` di content.js.
+   Kalau false: icon 💬 "Leave a note" disembunyikan dan fetchNotes()
+   tidak pernah dipanggil — project ini tidak perlu Worker/KV Cloudflare
+   sama sekali. */
+if (notesEnabled) {
+  fetchNotes().then((notes) => {
+    notes.forEach((note) => {
+      if (!note || !note.view || !findView(note.view)) return; // abaikan catatan untuk view yang sudah dihapus
+      viewer.addHotSpot(
+        {
+          id: `note-${note.id}`,
+          pitch: note.pitch,
+          yaw: note.yaw,
+          type: "info",
+          cssClass: "note-hotspot",
+          createTooltipFunc: createNoteHotspotEl,
+          createTooltipArgs: { label: "", showLabel: false },
+          clickHandlerFunc: () => openNoteModal(note),
+        },
+        note.view
+      );
+    });
+  });
+} else {
+  document.getElementById("note-btn")?.remove();
+}
 
 /** Pindah ke view lain. Dipakai floorplan.js (klik titik di denah). */
 export function goToView(id) {
@@ -197,34 +228,95 @@ async function copyLink() {
   if (navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(url);
-      showToast("リンクをコピーしました");
+      showToast("Link copied");
       return;
     } catch (err) {
       /* lanjut ke fallback di bawah */
     }
   }
   const ok = await copyLinkFallback(url);
-  showToast(ok ? "リンクをコピーしました" : "コピーに失敗しました");
+  showToast(ok ? "Link copied" : "Copy failed");
 }
 
-if (shareBtn) {
-  shareBtn.addEventListener("click", async () => {
-    const shareData = {
-      title: document.title,
-      text: `${projectName} Virtual Tour — Earnest Architects`,
-      url: window.location.href,
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (err) {
-        // Pengguna membatalkan share sheet, atau gagal — jangan tampilkan
-        // pesan error, cukup diamkan (perilaku umum Web Share API).
-        if (err && err.name === "AbortError") return;
-      }
+const sharePopup = document.getElementById("share-popup");
+const shareQrCanvas = document.getElementById("share-qr-canvas");
+const shareLinkText = document.getElementById("share-link-text");
+const shareCopyBtn = document.getElementById("share-copy-btn");
+const shareNativeBtn = document.getElementById("share-native-btn");
+
+function renderShareQr(url) {
+  if (!shareQrCanvas) return;
+  if (!window.qrcodeDraw) {
+    console.error("[share] window.qrcodeDraw tidak tersedia — cek apakah lib/qrcode.js berhasil dimuat.");
+    return;
+  }
+  const opts = { size: 188, margin: 2, dark: "#0b0f18", light: "#ffffff" };
+  try {
+    // Coba level koreksi "M" dulu (standar).
+    window.qrcodeDraw(shareQrCanvas, url, { ...opts, ecLevel: "M" });
+  } catch (errM) {
+    try {
+      // Kalau gagal (paling sering karena link terlalu panjang untuk level M),
+      // turunkan ke level "L" — koreksi error lebih rendah tapi daya tampung
+      // datanya lebih besar, jadi link yang lebih panjang masih bisa di-encode.
+      window.qrcodeDraw(shareQrCanvas, url, { ...opts, ecLevel: "L" });
+      console.warn("[share] QR di-render dengan ecLevel L (fallback) karena level M gagal:", errM);
+    } catch (errL) {
+      // Masih gagal juga — kemungkinan besar link memang terlalu panjang
+      // untuk QR sama sekali. Jangan biarkan kartu kosong tanpa penjelasan.
+      console.error("[share] Gagal membuat QR code untuk link ini:", errL);
+      const ctx = shareQrCanvas.getContext("2d");
+      ctx.clearRect(0, 0, shareQrCanvas.width, shareQrCanvas.height);
+      ctx.fillStyle = "#0b0f18";
+      ctx.font = "12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Link terlalu panjang", shareQrCanvas.width / 2, shareQrCanvas.height / 2 - 8);
+      ctx.fillText("untuk QR code", shareQrCanvas.width / 2, shareQrCanvas.height / 2 + 8);
     }
-    copyLink();
+  }
+}
+function closeSharePopup() {
+  if (!sharePopup || sharePopup.hidden) return;
+  sharePopup.hidden = true;
+  shareBtn.classList.remove("is-active");
+}
+function openSharePopup() {
+  if (!sharePopup) return;
+  const url = window.location.href;
+  if (shareLinkText) shareLinkText.textContent = url;
+  renderShareQr(url);
+  sharePopup.hidden = false;
+  shareBtn.classList.add("is-active");
+}
+if (shareCopyBtn) shareCopyBtn.addEventListener("click", copyLink);
+if (shareNativeBtn) {
+  if (navigator.share) {
+    shareNativeBtn.addEventListener("click", async () => {
+      try {
+        await navigator.share({ title: document.title, text: `${projectName} Virtual Tour`, url: window.location.href });
+      } catch (err) {
+        /* dibatalkan pengguna — diamkan */
+      }
+    });
+  } else {
+    shareNativeBtn.remove();
+  }
+}
+document.addEventListener("click", (e) => {
+  if (sharePopup && !sharePopup.hidden && !e.target.closest(".share-nav")) closeSharePopup();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSharePopup();
+});
+
+if (shareBtn) {
+  shareBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (sharePopup) {
+      sharePopup.hidden ? openSharePopup() : closeSharePopup();
+    } else {
+      copyLink();
+    }
   });
 }
 

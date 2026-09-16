@@ -69,7 +69,7 @@ function renderViewpointDots() {
     dot.dataset.view = point.target;
     dot.style.left = point.x + "%";
     dot.style.top = point.y + "%";
-    dot.setAttribute("aria-label", "この地点から見る: " + labelForTarget(point.target, point.label));
+    dot.setAttribute("aria-label", "View from this point: " + labelForTarget(point.target, point.label));
     dot.addEventListener("click", () => {
       if (point.target === getCurrentViewId()) return;
       goToView(point.target);

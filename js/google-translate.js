@@ -67,7 +67,7 @@ function injectGoogleTranslateScript() {
     // eslint-disable-next-line no-undef
     new google.translate.TranslateElement(
       {
-        pageLanguage: "ja",
+        pageLanguage: "en",
         includedLanguages: LANGS.map((l) => l.code).join(","),
         autoDisplay: false,
       },
@@ -104,9 +104,9 @@ export function initLanguageSwitcher() {
 
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "control-btn lang-switcher-btn";
-  btn.setAttribute("aria-label", "言語を変更");
-  btn.setAttribute("title", "言語を変更");
+  btn.className = "rail-btn lang-switcher-btn";
+  btn.setAttribute("aria-label", "Change language");
+  btn.setAttribute("title", "Change language");
   btn.innerHTML = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="9.2"/>
@@ -120,7 +120,7 @@ export function initLanguageSwitcher() {
   popup.hidden = true;
   popup.setAttribute("role", "menu");
   popup.innerHTML = `
-    <p class="lang-switcher-title">言語を選択</p>
+    <p class="lang-switcher-title">Select language</p>
     <div class="lang-switcher-list">
       ${LANGS.map(
         (l) => `<button type="button" class="lang-switcher-option" data-lang="${l.code}" role="menuitem">${l.label}</button>`
@@ -156,5 +156,5 @@ export function initLanguageSwitcher() {
 
   wrap.appendChild(btn);
   wrap.appendChild(popup);
-  document.body.appendChild(wrap);
+  (document.getElementById("icon-rail") || document.body).appendChild(wrap);
 }
