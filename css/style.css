@@ -8,10 +8,10 @@
   --panel-border: rgba(158, 186, 219, 0.16);
   --paper: #eef2f8;
   --paper-dim: #92a2b8;
-  --accent: #d1157a;
-  --accent-soft: rgba(209, 21, 122, 0.32);
-  --accent-dim: rgba(209, 21, 122, 0.12);
-  --accent-glow: rgba(209, 21, 122, 0.55);
+  --accent: #7fa4d6;
+  --accent-soft: rgba(127, 164, 214, 0.32);
+  --accent-dim: rgba(127, 164, 214, 0.12);
+  --accent-glow: rgba(127, 164, 214, 0.55);
 
   /* Warna khusus hotspot CONTENT (foto/link/video/embed), sengaja
      dibedakan dari --accent supaya beda dari hotspot navigasi. */
