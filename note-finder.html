@@ -17,10 +17,25 @@
 <link rel="stylesheet" href="lib/pannellum.css" />
 <link rel="stylesheet" href="css/style.css" />
 <link rel="stylesheet" href="css/note-finder.css" />
+<link rel="stylesheet" href="css/note-gate.css" />
 </head>
 <body>
 
-<div id="note-app">
+<div id="note-gate">
+  <div class="note-gate-bg"></div>
+  <div class="note-gate-card">
+    <p class="note-gate-eyebrow">💬 Leave a Note</p>
+    <h1 class="note-gate-title">Restricted Access</h1>
+    <p class="note-gate-hint">Enter the password to continue.</p>
+    <form id="note-gate-form" autocomplete="off">
+      <input type="password" id="note-gate-input" placeholder="Password" autocomplete="new-password" />
+      <button type="submit">Enter</button>
+    </form>
+    <p class="note-gate-error" id="note-gate-error" hidden>Incorrect password.</p>
+  </div>
+</div>
+
+<div id="note-app" hidden>
 
   <div id="panorama"></div>
 
@@ -101,6 +116,7 @@
 
 </div>
 
+<script src="js/note-gate.js"></script>
 <script src="lib/pannellum.js"></script>
 <script type="module" src="js/note-finder.js"></script>
 </body>
